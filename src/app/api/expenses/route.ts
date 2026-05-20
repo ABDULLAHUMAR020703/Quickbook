@@ -1,0 +1,88 @@
+﻿import { requireAuth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { getNextSequence } from '@/lib/sequences'
+
+export async function GET(request: Request) {
+  try {
+    await requireAuth()
+    const { searchParams } = new URL(request.url)
+    const search = searchParams.get('search') ?? ''
+    const status = searchParams.get('status') ?? ''
+
+    const expenses = await prisma.expense.findMany({
+      where: {
+        AND: [
+          search ? {
+            OR: [
+              { expenseNo: { contains: search } },
+              { description: { contains: search } },
+              { category: { contains: search } },
+            ],
+          } : {},
+          status ? { status } : {},
+        ],
+      },
+      include: { createdBy: { select: { name: true } }, lines: true },
+      orderBy: { date: 'desc' },
+    })
+
+    return Response.json(expenses)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return Response.json({ error: String(error) }, { status: 500 })
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const user = await requireAuth()
+    const body = await request.json()
+    const { date, description, category, lines, receiptId } = body
+
+    if (!date || !description || !category || !lines?.length) {
+      return Response.json({ error: 'date, description, category, lines are required' }, { status: 400 })
+    }
+
+    let total = 0
+    let taxAmount = 0
+    const processedLines = lines.map((l: { description: string; amount: number; taxRate: number; accountId?: string }) => {
+      const lineTax = l.amount * (l.taxRate / 100)
+      total += l.amount
+      taxAmount += lineTax
+      return l
+    })
+
+    const expenseNo = await getNextSequence('EXPENSE', 'EXP-')
+
+    const expense = await prisma.expense.create({
+      data: {
+        expenseNo,
+        date: new Date(date),
+        description,
+        category,
+        total,
+        taxAmount,
+        receiptId: receiptId || null,
+        createdById: user.id,
+        lines: {
+          create: processedLines.map((l: { description: string; amount: number; taxRate: number; accountId?: string }) => ({
+            description: l.description,
+            amount: l.amount,
+            taxRate: l.taxRate || 0,
+            accountId: l.accountId || null,
+          })),
+        },
+      },
+      include: { lines: true, createdBy: { select: { name: true } } },
+    })
+
+    return Response.json(expense, { status: 201 })
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return Response.json({ error: String(error) }, { status: 500 })
+  }
+}

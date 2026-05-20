@@ -1,0 +1,172 @@
+﻿'use client'
+
+import { useEffect, useState } from 'react'
+import { Plus, RefreshCw } from 'lucide-react'
+import { formatDate, formatCurrency, cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
+import { Input, Select } from '@/components/ui/input'
+import { PageHeader, SearchBar, FilterBar } from '@/components/ui/page-header'
+
+interface Account { id: string; accountNo: string; name: string }
+interface Expense {
+  id: string; expenseNo: string; date: string; description: string
+  category: string; total: number; taxAmount: number; status: string
+}
+
+const CATEGORIES = ['Travel', 'Meals', 'Office Supplies', 'Utilities', 'Software', 'Equipment', 'Marketing', 'Other']
+const STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'PAID']
+const EMPTY_LINE = { description: '', amount: 0, taxRate: 0, accountId: '' }
+
+export default function ExpensesPage() {
+  const [expenses, setExpenses] = useState<Expense[]>([])
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    date: new Date().toISOString().split('T')[0],
+    description: '', category: 'Travel',
+    lines: [{ ...EMPTY_LINE }]
+  })
+
+  async function load() {
+    setLoading(true)
+    const params = new URLSearchParams()
+    if (search) params.set('search', search)
+    if (statusFilter) params.set('status', statusFilter)
+    const [eRes, aRes] = await Promise.all([fetch(`/api/expenses?${params}`), fetch('/api/accounts')])
+    if (eRes.ok) setExpenses(await eRes.json())
+    if (aRes.ok) setAccounts(await aRes.json())
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [search, statusFilter])
+
+  function updateLine(idx: number, field: string, value: string | number) {
+    setForm(f => ({ ...f, lines: f.lines.map((l, i) => i === idx ? { ...l, [field]: value } : l) }))
+  }
+
+  const total = form.lines.reduce((s, l) => s + l.amount * (1 + l.taxRate / 100), 0)
+
+  async function handleSave() {
+    setSaving(true)
+    const res = await fetch('/api/expenses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+    if (res.ok) { setShowModal(false); load() }
+    setSaving(false)
+  }
+
+  async function handleApprove(id: string) {
+    await fetch(`/api/expenses/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'APPROVED' }) })
+    load()
+  }
+
+  const totalAmt = expenses.reduce((s, e) => s + e.total, 0)
+  const pending = expenses.filter(e => e.status === 'PENDING').length
+
+  return (
+    <div className="p-6 max-w-[1600px] mx-auto space-y-5">
+      <PageHeader
+        title="Expenses"
+        subtitle={`${expenses.length} expenses · ${formatCurrency(totalAmt)} total · ${pending} pending`}
+        breadcrumb={[{ label: 'Expenses' }, { label: 'Expenses' }]}
+        action={<Button onClick={() => { setForm({ date: new Date().toISOString().split('T')[0], description: '', category: 'Travel', lines: [{ ...EMPTY_LINE }] }); setShowModal(true) }}><Plus size={15} /> New Expense</Button>}
+      />
+
+      <FilterBar>
+        <SearchBar value={search} onChange={setSearch} placeholder="Search expenses..." className="flex-1 max-w-sm" />
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input-base w-auto min-w-[130px]">
+          <option value="">All Statuses</option>
+          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <button onClick={load} className="p-2 border border-slate-200 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-50 bg-white transition-colors">
+          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+        </button>
+      </FilterBar>
+
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full data-table">
+            <thead>
+              <tr className="border-b border-slate-100">
+                {['Expense #', 'Date', 'Description', 'Category', 'Amount', 'Status', ''].map((h, i) => (
+                  <th key={i} className={cn('px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-left', h === 'Amount' && 'text-right', h === 'Status' && 'text-center', h === '' && 'w-24')}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {loading ? Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i}>{Array.from({ length: 7 }).map((_, j) => <td key={j} className="px-4 py-3"><div className="skeleton h-4 rounded" /></td>)}</tr>
+              )) : expenses.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-16 text-center text-slate-400 text-sm">No expenses found.</td></tr>
+              ) : expenses.map(e => (
+                <tr key={e.id} className="hover:bg-slate-50/60 transition-colors">
+                  <td className="px-4 py-3 font-mono text-xs font-semibold text-indigo-600">{e.expenseNo}</td>
+                  <td className="px-4 py-3 text-xs text-slate-500">{formatDate(e.date)}</td>
+                  <td className="px-4 py-3 text-sm text-slate-700 max-w-[200px] truncate">{e.description}</td>
+                  <td className="px-4 py-3"><span className="badge bg-slate-50 text-slate-600 border border-slate-200">{e.category}</span></td>
+                  <td className="px-4 py-3 text-right font-semibold text-slate-900 tabular text-sm">{formatCurrency(e.total)}</td>
+                  <td className="px-4 py-3 text-center"><Badge status={e.status} /></td>
+                  <td className="px-4 py-3">
+                    {e.status === 'PENDING' && (
+                      <button onClick={() => handleApprove(e.id)} className="text-xs font-semibold text-emerald-600 hover:bg-emerald-50 px-2 py-1 rounded-lg transition-colors">Approve</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Modal open={showModal} onClose={() => setShowModal(false)} title="New Expense" size="lg"
+        footer={<><Button variant="outline" onClick={() => setShowModal(false)}>Cancel</Button><Button onClick={handleSave} loading={saving}>Save Expense</Button></>}
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            <Input label="Date" type="date" required value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+            <Select label="Category" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </Select>
+            <Input label="Description" required value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Line Items</label>
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    {['Description', 'Account', 'Amount', 'Tax %', ''].map((h, i) => <th key={i} className="px-3 py-2.5 text-[10px] font-semibold text-slate-500 uppercase text-left">{h}</th>)}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {form.lines.map((line, idx) => (
+                    <tr key={idx}>
+                      <td className="px-2 py-2"><input value={line.description} onChange={e => updateLine(idx, 'description', e.target.value)} placeholder="Description" className="input-base text-xs py-1.5" /></td>
+                      <td className="px-2 py-2 min-w-[120px]">
+                        <select value={line.accountId} onChange={e => updateLine(idx, 'accountId', e.target.value)} className="input-base text-xs py-1.5 bg-white">
+                          <option value="">—</option>
+                          {accounts.filter(a => ['5', '6'].some(p => a.accountNo.startsWith(p))).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-2 py-2 w-32"><input type="number" min="0" value={line.amount} onChange={e => updateLine(idx, 'amount', parseFloat(e.target.value) || 0)} className="input-base text-xs py-1.5 text-right" /></td>
+                      <td className="px-2 py-2 w-20"><input type="number" min="0" max="100" value={line.taxRate} onChange={e => updateLine(idx, 'taxRate', parseFloat(e.target.value) || 0)} className="input-base text-xs py-1.5 text-right" /></td>
+                      <td className="px-2 py-2"><button onClick={() => setForm(f => ({ ...f, lines: f.lines.filter((_, i) => i !== idx) }))} className="w-6 h-6 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-600 flex items-center justify-center text-base">×</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="bg-slate-50 border-t border-slate-200 px-4 py-2.5 flex justify-end">
+                <span className="text-sm font-bold text-slate-800">Total: <span className="text-indigo-600 tabular">{formatCurrency(total)}</span></span>
+              </div>
+            </div>
+            <button onClick={() => setForm(f => ({ ...f, lines: [...f.lines, { ...EMPTY_LINE }] }))} className="mt-2 flex items-center gap-1.5 text-sm text-indigo-600 font-medium"><Plus size={14} /> Add Line</button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  )
+}

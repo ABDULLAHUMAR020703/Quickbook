@@ -1,0 +1,118 @@
+'use client'
+
+import { useState } from 'react'
+import { formatCurrency } from '@/lib/utils'
+
+interface BSData {
+  asOf: string
+  assets: { items: { accountNo: string; name: string; balance: number }[]; total: number; ar: number }
+  liabilities: { items: { accountNo: string; name: string; balance: number }[]; total: number; ap: number }
+  equity: { items: { accountNo: string; name: string; balance: number }[]; total: number }
+  totalLiabilitiesAndEquity: number
+}
+
+function Section({ title, items, ar, ap, total, color }: {
+  title: string; items: { accountNo: string; name: string; balance: number }[]
+  ar?: number; ap?: number; total: number; color: string
+}) {
+  return (
+    <div>
+      <h3 className={`text-sm font-bold uppercase tracking-wide px-5 py-2.5 ${color}`}>{title}</h3>
+      {items.map((item) => (
+        item.balance !== 0 && (
+          <div key={item.accountNo} className="flex justify-between px-5 py-2 border-b text-sm hover:bg-gray-50">
+            <span className="text-gray-600">{item.name}</span>
+            <span className="font-medium text-gray-800">{formatCurrency(item.balance)}</span>
+          </div>
+        )
+      ))}
+      {ar !== undefined && ar > 0 && (
+        <div className="flex justify-between px-5 py-2 border-b text-sm hover:bg-gray-50">
+          <span className="text-gray-600">Accounts Receivable (outstanding)</span>
+          <span className="font-medium text-gray-800">{formatCurrency(ar)}</span>
+        </div>
+      )}
+      {ap !== undefined && ap > 0 && (
+        <div className="flex justify-between px-5 py-2 border-b text-sm hover:bg-gray-50">
+          <span className="text-gray-600">Accounts Payable (outstanding)</span>
+          <span className="font-medium text-gray-800">{formatCurrency(ap)}</span>
+        </div>
+      )}
+      <div className="flex justify-between px-5 py-2.5 bg-gray-50 font-semibold text-sm">
+        <span>Total {title}</span>
+        <span>{formatCurrency(total)}</span>
+      </div>
+    </div>
+  )
+}
+
+export default function BalanceSheetPage() {
+  const [asOf, setAsOf] = useState(new Date().toISOString().split('T')[0])
+  const [data, setData] = useState<BSData | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function load() {
+    setLoading(true)
+    const res = await fetch(`/api/reports/balance-sheet?asOf=${asOf}`)
+    if (res.ok) setData(await res.json())
+    setLoading(false)
+  }
+
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Balance Sheet</h1>
+        <p className="text-gray-500 text-sm mt-0.5">Financial position as of a specific date</p>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <div className="flex gap-3 items-end">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">As of Date</label>
+            <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <button onClick={load} disabled={loading}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium">
+            {loading ? 'Loading...' : 'Generate'}
+          </button>
+        </div>
+      </div>
+
+      {data && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Assets */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-5 py-3 border-b bg-blue-600">
+              <h2 className="text-white font-bold text-base">ASSETS</h2>
+            </div>
+            <Section title="Assets" items={data.assets.items} ar={data.assets.ar} total={data.assets.total + data.assets.ar} color="bg-blue-50 text-blue-700" />
+            <div className="flex justify-between px-5 py-3 bg-blue-600 text-white font-bold">
+              <span>TOTAL ASSETS</span>
+              <span>{formatCurrency(data.assets.total + data.assets.ar)}</span>
+            </div>
+          </div>
+
+          {/* Liabilities + Equity */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-5 py-3 border-b bg-orange-600">
+              <h2 className="text-white font-bold text-base">LIABILITIES & EQUITY</h2>
+            </div>
+            <Section title="Liabilities" items={data.liabilities.items} ap={data.liabilities.ap} total={data.liabilities.total + data.liabilities.ap} color="bg-orange-50 text-orange-700" />
+            <Section title="Equity" items={data.equity.items} total={data.equity.total} color="bg-purple-50 text-purple-700" />
+            <div className="flex justify-between px-5 py-3 bg-orange-600 text-white font-bold">
+              <span>TOTAL LIABILITIES & EQUITY</span>
+              <span>{formatCurrency(data.totalLiabilitiesAndEquity + data.liabilities.ap)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!data && !loading && (
+        <div className="flex items-center justify-center h-48 text-gray-400 text-sm">
+          Select a date and click &quot;Generate&quot;
+        </div>
+      )}
+    </div>
+  )
+}

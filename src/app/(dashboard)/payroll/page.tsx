@@ -1,0 +1,166 @@
+﻿'use client'
+
+import { useEffect, useState } from 'react'
+import { Plus, RefreshCw, CheckCircle } from 'lucide-react'
+import { formatCurrency, formatDate, cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/ui/modal'
+import { Input, Select, Textarea } from '@/components/ui/input'
+import { PageHeader, FilterBar } from '@/components/ui/page-header'
+
+interface Employee { id: string; name: string; salary: number; employeeNo: string }
+interface PayrollEntry {
+  id: string; payrollNo: string; employee: { name: string; employeeNo: string }
+  period: string; basicSalary: number; allowances: number; deductions: number
+  taxAmount: number; netSalary: number; status: string; paidAt?: string
+}
+
+export default function PayrollPage() {
+  const [payrolls, setPayrolls] = useState<PayrollEntry[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    employeeId: '', period: new Date().toISOString().slice(0, 7),
+    allowances: 0, deductions: 0, taxRate: 0, notes: ''
+  })
+
+  async function load() {
+    setLoading(true)
+    const [pRes, eRes] = await Promise.all([fetch('/api/payroll'), fetch('/api/employees')])
+    if (pRes.ok) setPayrolls(await pRes.json())
+    if (eRes.ok) setEmployees(await eRes.json())
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function handleSave() {
+    setSaving(true)
+    const res = await fetch('/api/payroll', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+    if (res.ok) { setShowModal(false); load() }
+    setSaving(false)
+  }
+
+  async function handleApprove(id: string) {
+    await fetch(`/api/payroll/${id}/approve`, { method: 'POST' })
+    load()
+  }
+
+  const selectedEmp = employees.find(e => e.id === form.employeeId)
+  const basicSalary = selectedEmp?.salary || 0
+  const taxAmount = (basicSalary + form.allowances - form.deductions) * (form.taxRate / 100)
+  const net = basicSalary + form.allowances - form.deductions - taxAmount
+
+  const totalPayroll = payrolls.filter(p => p.status === 'APPROVED' || p.status === 'PAID').reduce((s, p) => s + p.netSalary, 0)
+
+  return (
+    <div className="p-6 max-w-[1600px] mx-auto space-y-5">
+      <PageHeader
+        title="Payroll"
+        subtitle={`${payrolls.length} payroll runs`}
+        breadcrumb={[{ label: 'Operations' }, { label: 'Payroll' }]}
+        action={<Button onClick={() => setShowModal(true)}><Plus size={15} /> Generate Payroll</Button>}
+      />
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total Payrolls', value: payrolls.length, color: 'text-slate-700' },
+          { label: 'Draft', value: payrolls.filter(p => p.status === 'DRAFT').length, color: 'text-amber-600' },
+          { label: 'Approved', value: payrolls.filter(p => p.status === 'APPROVED').length, color: 'text-indigo-600' },
+          { label: 'Total Net Paid', value: formatCurrency(totalPayroll), color: 'text-emerald-600' },
+        ].map(s => (
+          <div key={s.label} className="bg-white rounded-xl border border-slate-200 px-4 py-3">
+            <p className="text-xs text-slate-400 font-medium">{s.label}</p>
+            <p className={cn('text-lg font-bold mt-0.5', s.color)}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      <FilterBar>
+        <button onClick={load} className="p-2 border border-slate-200 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-50 bg-white transition-colors">
+          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+        </button>
+      </FilterBar>
+
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full data-table">
+            <thead>
+              <tr className="border-b border-slate-100">
+                {['Payroll #', 'Employee', 'Period', 'Basic', 'Allowances', 'Deductions', 'Tax', 'Net Salary', 'Status', ''].map((h, i) => (
+                  <th key={i} className={cn('px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-left',
+                    ['Basic', 'Allowances', 'Deductions', 'Tax', 'Net Salary'].includes(h) && 'text-right',
+                    h === 'Status' && 'text-center', h === '' && 'w-24')}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {loading ? Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i}>{Array.from({ length: 10 }).map((_, j) => <td key={j} className="px-4 py-3"><div className="skeleton h-4 rounded" /></td>)}</tr>
+              )) : payrolls.length === 0 ? (
+                <tr><td colSpan={10} className="px-4 py-16 text-center text-slate-400 text-sm">No payroll entries yet. Generate payroll for your employees.</td></tr>
+              ) : payrolls.map(p => (
+                <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
+                  <td className="px-4 py-3 font-mono text-xs text-indigo-600 font-semibold">{p.payrollNo}</td>
+                  <td className="px-4 py-3">
+                    <p className="font-semibold text-slate-800 text-sm">{p.employee.name}</p>
+                    <p className="text-xs text-slate-400">{p.employee.employeeNo}</p>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-slate-600">{p.period}</td>
+                  <td className="px-4 py-3 text-right text-sm tabular">{formatCurrency(p.basicSalary)}</td>
+                  <td className="px-4 py-3 text-right text-sm tabular text-emerald-600">{formatCurrency(p.allowances)}</td>
+                  <td className="px-4 py-3 text-right text-sm tabular text-red-500">{formatCurrency(p.deductions)}</td>
+                  <td className="px-4 py-3 text-right text-sm tabular text-slate-500">{formatCurrency(p.taxAmount)}</td>
+                  <td className="px-4 py-3 text-right font-bold text-indigo-600 tabular">{formatCurrency(p.netSalary)}</td>
+                  <td className="px-4 py-3 text-center"><Badge status={p.status} /></td>
+                  <td className="px-4 py-3">
+                    {p.status === 'DRAFT' && (
+                      <button onClick={() => handleApprove(p.id)}
+                        className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 px-2 py-1 rounded-lg transition-colors">
+                        <CheckCircle size={12} /> Approve
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Modal open={showModal} onClose={() => setShowModal(false)}
+        title="Generate Payroll" subtitle="Create payroll for an employee"
+        size="sm"
+        footer={<><Button variant="outline" onClick={() => setShowModal(false)}>Cancel</Button><Button onClick={handleSave} loading={saving}>Generate</Button></>}
+      >
+        <div className="space-y-4">
+          <Select label="Employee" required value={form.employeeId} onChange={e => setForm({ ...form, employeeId: e.target.value })}>
+            <option value="">Select employee...</option>
+            {employees.map(e => <option key={e.id} value={e.id}>{e.name} — {formatCurrency(e.salary)}/mo</option>)}
+          </Select>
+          <Input label="Period (YYYY-MM)" type="month" required value={form.period} onChange={e => setForm({ ...form, period: e.target.value })} />
+          {selectedEmp && (
+            <div className="bg-indigo-50 rounded-xl p-3 text-sm">
+              <p className="text-slate-600">Basic Salary: <span className="font-bold text-indigo-700">{formatCurrency(basicSalary)}</span></p>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Allowances (SAR)" type="number" value={form.allowances} onChange={e => setForm({ ...form, allowances: parseFloat(e.target.value) || 0 })} />
+            <Input label="Deductions (SAR)" type="number" value={form.deductions} onChange={e => setForm({ ...form, deductions: parseFloat(e.target.value) || 0 })} />
+          </div>
+          <Input label="Tax Rate (%)" type="number" min="0" max="100" value={form.taxRate} onChange={e => setForm({ ...form, taxRate: parseFloat(e.target.value) || 0 })} />
+          {selectedEmp && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+              <p className="text-sm font-semibold text-emerald-800">Net Salary: {formatCurrency(net)}</p>
+              <p className="text-xs text-emerald-600 mt-0.5">Tax: {formatCurrency(taxAmount)}</p>
+            </div>
+          )}
+          <Textarea label="Notes" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
+        </div>
+      </Modal>
+    </div>
+  )
+}
