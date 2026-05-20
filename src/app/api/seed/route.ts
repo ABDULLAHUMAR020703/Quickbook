@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { seedDemoTransactions } from '@/lib/demo-seed'
 import bcrypt from 'bcryptjs'
 
 const COA_ACCOUNTS = [
@@ -182,9 +183,17 @@ export async function POST() {
       }
     }
 
+    const demoResult = await seedDemoTransactions(prisma)
+    const demoMsg =
+      demoResult === 'created'
+        ? ', demo transactions (customers, invoices, bills, expenses, payroll, inventory)'
+        : typeof demoResult === 'string' && demoResult !== 'skipped'
+          ? ` (${demoResult})`
+          : ''
+
     return Response.json({
       success: true,
-      message: `Seeded: ${coaCreated} COA accounts, ${ccCreated} cost centers, admin user, tax rates, sequences`,
+      message: `Seeded: ${coaCreated} COA accounts, ${ccCreated} cost centers, admin user, tax rates, sequences${demoMsg}`,
     })
   } catch (error) {
     console.error('Seed error:', error)

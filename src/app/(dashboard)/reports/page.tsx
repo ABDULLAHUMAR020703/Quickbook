@@ -1,4 +1,6 @@
-﻿import Link from 'next/link'
+﻿'use client'
+
+import Link from 'next/link'
 import { BarChart3, TrendingUp, Scale, Activity, BookOpen, ArrowRight } from 'lucide-react'
 
 const REPORTS = [

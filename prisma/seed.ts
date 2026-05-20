@@ -224,6 +224,12 @@ async function main() {
   }
   console.log(`Created ${ccCreated} cost centers`)
 
+  // Demo transactions (customers, invoices, bills, etc.)
+  const { seedDemoTransactions } = await import('../src/lib/demo-seed')
+  const demoResult = await seedDemoTransactions()
+  if (demoResult === 'created') console.log('Created demo transactions')
+  else if (demoResult !== 'skipped') console.log(`Demo data: ${demoResult}`)
+
   console.log('Seeding complete!')
 }
 
