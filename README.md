@@ -1,36 +1,96 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Quickbook
 
-## Getting Started
+A small-business style accounting web app: chart of accounts, journal entries, invoices, bills, expenses, payroll, inventory, cost centers, and financial reports. Built as a [Next.js](https://nextjs.org) App Router application with a SQLite database via [Prisma](https://www.prisma.io).
 
-First, run the development server:
+**Repository:** [github.com/ABDULLAHUMAR020703/Quickbook](https://github.com/ABDULLAHUMAR020703/Quickbook)
+
+## Features
+
+- **Authentication** — Session-based login; protected dashboard routes  
+- **Core accounting** — Accounts, journal entries, general ledger-style reporting  
+- **AR / AP** — Customers, vendors, invoices, bills, receipts  
+- **Operations** — Employees, payroll, inventory, expenses, tax helpers  
+- **Reporting** — Balance sheet, profit & loss, cash flow, and related API routes  
+
+## Tech stack
+
+| Layer | Choice |
+|--------|--------|
+| Framework | Next.js 16 (App Router) |
+| UI | React 19, Tailwind CSS 4, Radix UI |
+| Database | SQLite (`dev.db` in project root) |
+| ORM | Prisma 7 with `better-sqlite3` adapter |
+| Validation / forms | Zod, React Hook Form |
+
+## Prerequisites
+
+- **Node.js** 20+ (LTS recommended)  
+- **npm** (or compatible package manager)
+
+## Getting started
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/ABDULLAHUMAR020703/Quickbook.git
+cd Quickbook
+npm install
+```
+
+### 2. Environment
+
+Prisma CLI reads the database URL from `prisma.config.ts`. Create a `.env` file in the project root:
+
+```env
+DATABASE_URL="file:./dev.db"
+```
+
+The running app uses a SQLite file at `dev.db` in the project root (see `src/lib/prisma.ts`). Keep `.env` out of version control; it is already listed in `.gitignore`.
+
+### 3. Database schema and seed
+
+```bash
+npm run db:push
+npm run db:seed
+```
+
+### 4. Run the dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). After seeding, sign in with one of these **development-only** accounts (change or remove them before any real deployment):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Role | Email | Password |
+|------|--------|----------|
+| Admin | `admin@financebook.com` | `admin123` |
+| Accountant | `accountant@financebook.com` | `accountant123` |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts
 
-## Learn More
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Next.js in development |
+| `npm run build` | Production build |
+| `npm run start` | Start production server |
+| `npm run lint` | Run ESLint |
+| `npm run db:push` | Push Prisma schema to SQLite |
+| `npm run db:seed` | Run `prisma/seed.ts` |
+| `npm run db:studio` | Open Prisma Studio |
 
-To learn more about Next.js, take a look at the following resources:
+## Project layout (high level)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `src/app/(auth)` — Login and related routes  
+- `src/app/(dashboard)` — Main app shell and feature pages  
+- `src/app/api` — REST-style route handlers for CRUD and reports  
+- `src/components` — Shared UI (tables, forms, layout pieces)  
+- `src/lib` — Auth helpers, Prisma client, utilities  
+- `prisma/schema.prisma` — Data models  
+- `prisma/seed.ts` — Sample data  
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deploying
 
-## Deploy on Vercel
+You can deploy on [Vercel](https://vercel.com) or any Node host. For production, plan for a **persistent SQLite file** or switch the Prisma datasource to PostgreSQL/MySQL and set `DATABASE_URL` accordingly—the app currently targets a local SQLite file path for the Prisma adapter.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+For framework-level topics (routing, deployment, images), see the [Next.js documentation](https://nextjs.org/docs).
