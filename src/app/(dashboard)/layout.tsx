@@ -293,7 +293,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-30 animate-scale-in">
                     <div className="px-4 py-2 border-b border-slate-100">
                       <p className="text-xs font-semibold text-slate-700">Admin User</p>
-                      <p className="text-xs text-slate-400">admin@quickbook.com</p>
+                      <p className="text-xs text-slate-400">admin@financebook.com</p>
                     </div>
                     <a href="/settings" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
                       <Settings size={14} /> Settings

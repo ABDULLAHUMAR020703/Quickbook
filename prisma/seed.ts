@@ -1,12 +1,9 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
-import Database from 'better-sqlite3'
 import bcrypt from 'bcryptjs'
-import path from 'path'
+import { getSqliteDatabaseUrl } from '../src/lib/sqlite-db'
 
-const dbPath = path.join(process.cwd(), 'dev.db')
-const sqlite = new Database(dbPath)
-const adapter = new PrismaBetterSqlite3({ url: 'file:' + dbPath })
+const adapter = new PrismaBetterSqlite3({ url: getSqliteDatabaseUrl() })
 const prisma = new PrismaClient({ adapter })
 
 const COA_ACCOUNTS = [
@@ -190,7 +187,7 @@ async function main() {
     { type: 'EXPENSE', prefix: 'EXP-' },
     { type: 'PAYMENT', prefix: 'PAY-' },
     { type: 'EMPLOYEE', prefix: 'EMP-' },
-    { type: 'PAYROLL', prefix: 'PAY-' },
+    { type: 'PAYROLL', prefix: 'PRL-' },
     { type: 'CUSTOMER', prefix: 'CUST-' },
     { type: 'VENDOR', prefix: 'VEND-' },
     { type: 'ITEM', prefix: 'ITEM-' },

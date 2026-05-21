@@ -6,7 +6,7 @@ import { Eye, EyeOff, TrendingUp, Lock, Mail } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('admin@quickbook.com')
+  const [email, setEmail] = useState('admin@financebook.com')
   const [password, setPassword] = useState('admin123')
   const [showPwd, setShowPwd] = useState(false)
   const [error, setError] = useState('')
@@ -197,7 +197,7 @@ export default function LoginPage() {
             <div className="space-y-1">
               <div className="flex justify-between text-xs">
                 <span className="text-slate-400">Email</span>
-                <span className="font-mono text-slate-700">admin@quickbook.com</span>
+                <span className="font-mono text-slate-700">admin@financebook.com</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-slate-400">Password</span>
